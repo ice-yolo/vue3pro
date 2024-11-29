@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80" # 前端服务映射到主机的 80 端口
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # 后端服务映射到主机的 3000 端口
+    environment:
+      - MONGO_URI=mongodb+srv://1901314481:m-6gQ_UVqiAAX6w@cluster0.sqp8v2l.mongodb.net/kao
+
+  mongo:
+    image: mongo:6.0
+    ports:
+      - "27017:27017" # 数据库映射到主机的 27017 端口
