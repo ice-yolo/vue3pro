@@ -1,0 +1,32 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: 检出代码
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Step 2: 使用 SSH 传输代码到远程服务器
+    - name: Transfer code to remote server
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
+          mkdir -p /var/www/project
+        EOF
+        scp -o StrictHostKeyChecking=no -r ./* ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/var/www/project
+
+    # Step 3: 在远程服务器上构建并运行容器
+    - name: Build and run containers on remote server
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
+          cd /var/www/project
+          docker-compose build
+          docker-compose up -d
+        EOF
