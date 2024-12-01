@@ -1,6 +1,6 @@
 <template>
     <div>
-        <h1>hello vue!</h1>
+        <h1>hello vue!完成自动化部署！！！</h1>
         <button @click="() => { router.push('/home') }">go to home</button>
     </div>
 </template>
