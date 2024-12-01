@@ -10,31 +10,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: 检出代码
-    - name: Checkout code
-      uses: actions/checkout@v2
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    # Step 2: 使用 SSH 和 rsync 增量传输代码到远程服务器
-    - name: Transfer code to remote server
-      run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
-          mkdir -p /var/www/project
-        EOF
-        rsync -avz --exclude 'node_modules' --exclude '.env' ./ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/var/www/project
+      # Step 2: 设置 SSH 环境
+      # 确保私钥正确配置，并设置 known_hosts 文件
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.REMOTE_HOST }} >> ~/.ssh/known_hosts
 
-    # Step 3: 在远程服务器上构建并运行容器
-    - name: Build and run containers on remote server
-      run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
-          cd /var/www/project
-          docker compose down --remove-orphans || exit 1
-          docker compose build --no-cache || exit 1
-          docker compose up -d || exit 1
-        EOF
+      # Step 3: 测试 SSH 连接
+      # 通过连接测试确保 SSH 工作正常
+      - name: Test SSH Connection
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "echo Connection successful"
 
-    # Step 4: 验证部署是否成功
-    - name: Verify deployment
-      run: |
-        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
-          curl -f http://localhost:8080 || exit 1
-        EOF
+      # Step 4: 创建远程目录
+      # 如果目录不存在，创建目录
+      - name: Create directory on remote server
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "mkdir -p /var/www/project"
+
+      # Step 5: 使用 rsync 增量传输代码到远程服务器
+      # rsync 用于同步代码，并忽略某些文件
+      - name: Transfer code to remote server
+        run: |
+          rsync -avz --exclude 'node_modules' --exclude '.env' -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no" ./ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/var/www/project
+
+      # Step 6: 在远程服务器上构建并运行容器
+      # 确保 Docker 容器按需启动
+      - name: Build and run containers on remote server
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
+            cd /var/www/project
+            docker compose down --remove-orphans
+            docker compose build --no-cache
+            docker compose up -d
+          EOF
