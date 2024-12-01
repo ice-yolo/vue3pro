@@ -1,6 +1,6 @@
 <template>
     <div>
-        <h2>Home</h2>
+        <h2>Home | 已更改SSH密钥</h2>
         <button @click="() => { router.push('/about') }">Go to About</button>
         <div class="pro" v-for="item in arr" :key="item">
             <!-- 名称 -->
