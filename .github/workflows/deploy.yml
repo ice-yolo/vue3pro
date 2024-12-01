@@ -14,19 +14,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    # Step 2: 使用 SSH 传输代码到远程服务器
+    # Step 2: 使用 SSH 和 rsync 增量传输代码到远程服务器
     - name: Transfer code to remote server
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
           mkdir -p /var/www/project
         EOF
-        scp -o StrictHostKeyChecking=no -r ./* ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/var/www/project
+        rsync -avz --exclude 'node_modules' --exclude '.env' ./ ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/var/www/project
 
     # Step 3: 在远程服务器上构建并运行容器
     - name: Build and run containers on remote server
       run: |
         ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
           cd /var/www/project
-          docker-compose build
-          docker-compose up -d
+          docker compose down --remove-orphans || exit 1
+          docker compose build --no-cache || exit 1
+          docker compose up -d || exit 1
+        EOF
+
+    # Step 4: 验证部署是否成功
+    - name: Verify deployment
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << EOF
+          curl -f http://localhost:8080 || exit 1
         EOF
